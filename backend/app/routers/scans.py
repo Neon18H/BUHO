@@ -85,3 +85,13 @@ def get_scan(scan_id: UUID, db: Session = Depends(get_db)):
         finished_at=scan.finished_at,
         findings=scan.findings,
     )
+
+
+@router.delete("/{scan_id}", status_code=204)
+def delete_scan(scan_id: UUID, db: Session = Depends(get_db)) -> None:
+    scan = db.query(models.Scan).filter(models.Scan.id == scan_id).one_or_none()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    db.delete(scan)
+    db.commit()

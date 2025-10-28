@@ -1,4 +1,4 @@
-import React, { Fragment, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Scan } from '../services/api';
 import RiskBadge from './RiskBadge';
 
@@ -53,11 +53,24 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
           };
         });
 
+        const accumulatedSeverity = topFindings.reduce((acc, finding) => {
+          return acc + (severityWeight[finding.severity ?? 'informational'] ?? 1);
+        }, 0);
+        const normalizedScore = Math.min(
+          100,
+          Math.round(
+            (accumulatedSeverity / Math.max(topFindings.length * severityWeight.critical, 1)) *
+              100
+          )
+        );
+
         return {
           id: scan.id,
           target: scan.target,
           severity: ordered[0].severity ?? 'informational',
-          narrative: attackNarrative
+          narrative: attackNarrative,
+          score: normalizedScore,
+          findings: topFindings
         };
       })
       .filter((value): value is NonNullable<typeof value> => Boolean(value));
@@ -84,32 +97,37 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
               <h3>{scenario.target}</h3>
               <p>Cadena de explotación propuesta</p>
             </div>
-            <RiskBadge level={scenario.severity ?? 'informational'} />
+            <div className="attack-card-summary">
+              <div className="attack-score">
+                <span>Exposición estimada</span>
+                <strong>{scenario.score}%</strong>
+              </div>
+              <RiskBadge level={scenario.severity ?? 'informational'} />
+            </div>
           </header>
-          <div className="attack-path-diagram" role="list">
+          <p className="attack-card-subtitle">
+            Secuencia priorizada de hallazgos con mayor probabilidad de explotación encadenada.
+          </p>
+          <ol className="attack-path" role="list">
             {scenario.narrative.map((step, index) => (
-              <Fragment key={`${scenario.id}-${index}`}>
-                <div
-                  role="listitem"
-                  className={`attack-node severity-${step.severity ?? 'informational'}`}
-                >
-                  <div className="attack-node-badge">{index + 1}</div>
-                  <div className="attack-node-body">
-                    <h4>{step.phase}</h4>
-                    <p>{step.summary}</p>
-                    <span className="attack-node-meta">
-                      Vector: <strong>{step.vector}</strong> · Recurso: <strong>{step.resource}</strong>
-                    </span>
+              <li
+                key={`${scenario.id}-${index}`}
+                className={`attack-step severity-${step.severity ?? 'informational'}`}
+              >
+                <div className="attack-step-marker">
+                  <span className="attack-step-index">{index + 1}</span>
+                  <span className="attack-step-phase">{step.phase}</span>
+                </div>
+                <div className="attack-step-body">
+                  <p>{step.summary}</p>
+                  <div className="attack-step-meta">
+                    <span>Vector: <strong>{step.vector}</strong></span>
+                    <span>Activo: <strong>{step.resource}</strong></span>
                   </div>
                 </div>
-                {index < scenario.narrative.length - 1 && (
-                  <div className="attack-node-connector" aria-hidden="true">
-                    <span />
-                  </div>
-                )}
-              </Fragment>
+              </li>
             ))}
-          </div>
+          </ol>
         </article>
       ))}
     </div>

@@ -3,13 +3,23 @@ import DashboardCards from './components/DashboardCards';
 import FindingsTable from './components/FindingsTable';
 import ScanLauncher from './components/ScanLauncher';
 import ScanMap from './components/ScanMap';
+import ScanList from './components/ScanList';
 import Sidebar, { ViewKey } from './components/Sidebar';
 import AttackPathsView from './components/AttackPathsView';
 import AssetsOverview from './components/AssetsOverview';
 import { useScans } from './hooks/useScans';
 
 const App: React.FC = () => {
-  const { scans, isLoading, severityTally, createScan, isCreating, error } = useScans();
+  const {
+    scans,
+    isLoading,
+    severityTally,
+    createScan,
+    isCreating,
+    error,
+    deleteScan,
+    deletingIds
+  } = useScans();
   const [activeView, setActiveView] = useState<ViewKey>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
 
@@ -21,8 +31,9 @@ const App: React.FC = () => {
         activeScans={scans.filter((scan) => scan.status === 'running').length}
         severityTally={severityTally}
       />
-      <div className="grid" style={{ margin: '2rem 0' }}>
+      <div className="grid grid-two" style={{ margin: '2rem 0' }}>
         <ScanMap scans={scans} />
+        <ScanList scans={scans} onDelete={deleteScan} deletingIds={deletingIds} />
       </div>
       <FindingsTable scans={scans} />
     </>

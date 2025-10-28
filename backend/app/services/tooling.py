@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 from ..config import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -45,34 +50,58 @@ class ToolRunner:
         ]
 
     async def run(self, target: str) -> ToolResult:
-        if settings.enable_tool_containers and self.container_image:
-            cmd = self.build_container_command(target)
-        else:
-            cmd = self.build_command(target)
+        """Execute the underlying tool preferring containers when available."""
 
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+        execution_plan: List[Tuple[str, List[str]]] = []
+        container_enabled = bool(settings.enable_tool_containers and self.container_image)
+
+        if container_enabled:
+            docker_path = shutil.which("docker")
+            if docker_path:
+                execution_plan.append(("container", self.build_container_command(target)))
+            else:
+                logger.info(
+                    "Docker CLI no encontrado; usando ejecución nativa para %s", self.name
+                )
+        execution_plan.append(("native", self.build_command(target)))
+
+        last_error: Exception | None = None
+        for mode, cmd in execution_plan:
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+            except FileNotFoundError as exc:
+                last_error = exc
+                logger.debug(
+                    "No se encontró comando '%s' para %s (modo %s)",
+                    cmd[0],
+                    self.name,
+                    mode,
+                )
+                continue
+
+            stdout, stderr = await process.communicate()
+            result = ToolResult(
+                tool=self.name,
+                exit_code=process.returncode,
+                stdout=stdout.decode(),
+                stderr=stderr.decode(),
             )
-        except FileNotFoundError as exc:
-            # Herramienta no disponible en el entorno actual.
+            return self.enrich_result(result, target)
+
+        if last_error:
             return ToolResult(
                 tool=self.name,
                 exit_code=127,
                 stdout="",
-                stderr=str(exc),
+                stderr=str(last_error),
             )
 
-        stdout, stderr = await process.communicate()
-        result = ToolResult(
-            tool=self.name,
-            exit_code=process.returncode,
-            stdout=stdout.decode(),
-            stderr=stderr.decode(),
-        )
-        return self.enrich_result(result, target)
+        # Fall back to a generic failure if no command could be executed.
+        return ToolResult(tool=self.name, exit_code=1, stdout="", stderr="execution_failed")
 
     def enrich_result(self, result: ToolResult, target: str) -> ToolResult:
         """Permite a los runners complementar la salida con artefactos."""
