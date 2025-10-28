@@ -42,4 +42,8 @@ export const createScan = async (payload: CreateScanPayload): Promise<Scan> => {
   return response.data;
 };
 
+export const deleteScan = async (scanId: string): Promise<void> => {
+  await api.delete(`/scans/${scanId}`);
+};
+
 export default api;

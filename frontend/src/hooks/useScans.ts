@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AxiosError } from 'axios';
-import { createScan as createScanRequest, fetchScans, Scan } from '../services/api';
+import {
+  createScan as createScanRequest,
+  deleteScan as deleteScanRequest,
+  fetchScans,
+  Scan
+} from '../services/api';
 
 type SeverityCount = Record<string, number>;
 
@@ -12,6 +17,8 @@ export interface DashboardData {
   createScan: (target: string, tools: string[]) => Promise<Scan>;
   isCreating: boolean;
   error: string | null;
+  deleteScan: (scanId: string) => Promise<void>;
+  deletingIds: Set<string>;
 }
 
 const initialTally: SeverityCount = {
@@ -27,6 +34,7 @@ export const useScans = (): DashboardData => {
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isCreating, setCreating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     const load = async () => {
@@ -77,5 +85,42 @@ export const useScans = (): DashboardData => {
 
   const targets = useMemo(() => scans.map((scan) => scan.target), [scans]);
 
-  return { scans, isLoading, severityTally, targets, createScan, isCreating, error };
+  const deleteScan = useCallback(async (scanId: string) => {
+    setError(null);
+    setDeletingIds((prev) => {
+      const next = new Set(prev);
+      next.add(scanId);
+      return next;
+    });
+
+    try {
+      await deleteScanRequest(scanId);
+      setScans((prev) => prev.filter((scan) => scan.id !== scanId));
+    } catch (err) {
+      if (err instanceof AxiosError) {
+        setError(err.response?.data?.detail ?? err.message);
+      } else {
+        setError('No se pudo eliminar el escaneo.');
+      }
+      throw err;
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(scanId);
+        return next;
+      });
+    }
+  }, []);
+
+  return {
+    scans,
+    isLoading,
+    severityTally,
+    targets,
+    createScan,
+    isCreating,
+    error,
+    deleteScan,
+    deletingIds
+  };
 };
