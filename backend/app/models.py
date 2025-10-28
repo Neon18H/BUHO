@@ -58,7 +58,15 @@ class Finding(Base):
     cve = Column(String(50), nullable=True)
     remediation = Column(Text, nullable=True)
     exploitation = Column(Text, nullable=True)
-    metadata = Column(JSON, default=dict)
+    _metadata = Column("metadata", JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     scan = relationship("Scan", back_populates="findings")
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value):
+        self._metadata = value
