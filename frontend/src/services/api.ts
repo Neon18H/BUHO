@@ -27,8 +27,18 @@ export interface Scan {
   findings: Finding[];
 }
 
+export interface CreateScanPayload {
+  target: string;
+  tools: string[];
+}
+
 export const fetchScans = async (): Promise<Scan[]> => {
   const response = await api.get<Scan[]>('/scans');
+  return response.data;
+};
+
+export const createScan = async (payload: CreateScanPayload): Promise<Scan> => {
+  const response = await api.post<Scan>('/scans', payload);
   return response.data;
 };
 

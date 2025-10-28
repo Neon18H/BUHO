@@ -1,11 +1,12 @@
 import React from 'react';
 import DashboardCards from './components/DashboardCards';
 import FindingsTable from './components/FindingsTable';
+import ScanLauncher from './components/ScanLauncher';
 import ScanMap from './components/ScanMap';
 import { useScans } from './hooks/useScans';
 
 const App: React.FC = () => {
-  const { scans, isLoading, severityTally } = useScans();
+  const { scans, isLoading, severityTally, createScan, isCreating, error } = useScans();
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
@@ -15,6 +16,7 @@ const App: React.FC = () => {
           Orquestación inteligente de Wapiti, Nikto, SQLmap y GoBuster con priorización y asistencia IA.
         </p>
       </header>
+      <ScanLauncher onCreate={createScan} isCreating={isCreating} error={error} />
       {isLoading ? (
         <p>Cargando escaneos...</p>
       ) : (

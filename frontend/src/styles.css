@@ -74,3 +74,103 @@ a:hover {
   background-color: rgba(129, 140, 248, 0.2);
   color: #a5b4fc;
 }
+
+.scan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.scan-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.scan-input {
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.6);
+  color: inherit;
+}
+
+.scan-input:focus {
+  outline: 2px solid rgba(56, 189, 248, 0.6);
+  outline-offset: 2px;
+}
+
+.scan-fieldset {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.scan-fieldset legend {
+  padding: 0 0.5rem;
+  font-weight: 600;
+}
+
+.tools-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 0.75rem;
+}
+
+.tool-option {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.tool-option input[type='checkbox'] {
+  margin-top: 0.35rem;
+}
+
+.tool-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-option small {
+  opacity: 0.7;
+}
+
+.scan-error {
+  margin: 0;
+  color: #f87171;
+  font-weight: 500;
+}
+
+.scan-success {
+  margin: 0;
+  color: #4ade80;
+  font-weight: 500;
+}
+
+.scan-button {
+  align-self: flex-start;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  border: none;
+  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.scan-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.scan-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+}

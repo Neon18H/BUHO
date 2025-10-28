@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { fetchScans, Scan } from '../services/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AxiosError } from 'axios';
+import { createScan as createScanRequest, fetchScans, Scan } from '../services/api';
 
 type SeverityCount = Record<string, number>;
 
@@ -8,6 +9,9 @@ export interface DashboardData {
   isLoading: boolean;
   severityTally: SeverityCount;
   targets: string[];
+  createScan: (target: string, tools: string[]) => Promise<Scan>;
+  isCreating: boolean;
+  error: string | null;
 }
 
 const initialTally: SeverityCount = {
@@ -21,6 +25,8 @@ const initialTally: SeverityCount = {
 export const useScans = (): DashboardData => {
   const [scans, setScans] = useState<Scan[]>([]);
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isCreating, setCreating] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -47,7 +53,29 @@ export const useScans = (): DashboardData => {
     }, { ...initialTally });
   }, [scans]);
 
+  const createScan = useCallback(
+    async (target: string, tools: string[]) => {
+      setCreating(true);
+      setError(null);
+      try {
+        const newScan = await createScanRequest({ target, tools });
+        setScans((prev) => [newScan, ...prev]);
+        return newScan;
+      } catch (err) {
+        let message = 'No se pudo iniciar el escaneo.';
+        if (err instanceof AxiosError) {
+          message = err.response?.data?.detail ?? err.message;
+        }
+        setError(message);
+        throw err;
+      } finally {
+        setCreating(false);
+      }
+    },
+    []
+  );
+
   const targets = useMemo(() => scans.map((scan) => scan.target), [scans]);
 
-  return { scans, isLoading, severityTally, targets };
+  return { scans, isLoading, severityTally, targets, createScan, isCreating, error };
 };
