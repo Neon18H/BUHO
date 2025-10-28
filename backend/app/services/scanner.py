@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import datetime
 from typing import Iterable
 
@@ -7,6 +8,18 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..services import ai, cve, prioritization
 from ..services.tooling import get_tool_runner
+
+try:
+    from celery.exceptions import CeleryError
+except Exception:  # pragma: no cover - celery always available in runtime image
+    CeleryError = Exception
+
+try:
+    from kombu.exceptions import KombuError
+except Exception:  # pragma: no cover - kombu always available in runtime image
+    KombuError = Exception
+
+logger = logging.getLogger(__name__)
 
 
 class ScannerOrchestrator:
@@ -21,7 +34,31 @@ class ScannerOrchestrator:
         self.db.commit()
         from ..tasks import scans as scan_tasks
 
-        scan_tasks.execute_scan.delay(str(scan.id))
+        try:
+            scan_tasks.execute_scan.delay(str(scan.id))
+        except (KombuError, CeleryError, ConnectionError) as exc:
+            logger.warning(
+                "Falling back to inline scan execution due to broker error: %s", exc
+            )
+            self._execute_scan_inline(scan)
+
+    def _execute_scan_inline(self, scan: models.Scan) -> None:
+        """Run the scan synchronously when async queue processing is unavailable."""
+
+        try:
+            try:
+                asyncio.run(self.run_scan(scan))
+            except RuntimeError:
+                # Event loop already running (e.g. during tests) -> reuse loop.
+                loop = asyncio.get_event_loop()
+                loop.run_until_complete(self.run_scan(scan))
+        except Exception:
+            logger.exception("Inline scan execution failed")
+            scan.status = models.ScanStatus.failed
+            scan.finished_at = datetime.utcnow()
+            self.db.add(scan)
+            self.db.commit()
+            raise
 
     def process_tool_results(
         self, scan: models.Scan, findings: Iterable[dict]
