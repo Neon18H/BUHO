@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Scan } from '../services/api';
+import type { Finding, Scan } from '../services/api';
 import RiskBadge from './RiskBadge';
 
 interface AttackPathsViewProps {
@@ -12,6 +12,10 @@ interface AttackStep {
   vector: string;
   resource: string;
   severity: string;
+  technique: string;
+  weakness: string;
+  impact: string;
+  indicator?: string;
 }
 
 const severityWeight: Record<string, number> = {
@@ -23,6 +27,118 @@ const severityWeight: Record<string, number> = {
 };
 
 const attackPhases = ['Acceso inicial', 'Movimiento lateral', 'Impacto'];
+
+const cleanIndicator = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (trimmed.length > 120) {
+    return `${trimmed.slice(0, 117)}...`;
+  }
+  return trimmed;
+};
+
+const buildTechniqueProfile = (finding: Finding, resource: string) => {
+  const vector = (finding.metadata?.['attack_vector'] as string) ?? 'remoto';
+  const baseText = [
+    finding.title,
+    finding.description,
+    (finding.metadata?.['classification'] as string) ?? '',
+    (finding.metadata?.['reason'] as string) ?? ''
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  const setProfile = (
+    technique: string,
+    tactic: string,
+    impact: string
+  ): { technique: string; impact: string } => ({
+    technique: `${technique} (${tactic})`,
+    impact
+  });
+
+  let profile = setProfile('Explotación de servicio expuesto', 'T1190', `comprometer ${resource}`);
+
+  if (/sql|inyecci[óo]n/.test(baseText) || finding.tool === 'sqlmap') {
+    profile = setProfile(
+      'Inyección SQL',
+      'T1190',
+      'exfiltrar o manipular datos del motor de base de datos'
+    );
+  } else if (/xss|cross-site/.test(baseText)) {
+    profile = setProfile(
+      'Cross-Site Scripting',
+      'T1059.007',
+      'secuestrar sesiones de usuario o desplegar cargas maliciosas'
+    );
+  } else if (/cabecera|header|https|ssl|tls/.test(baseText) || finding.tool === 'nikto') {
+    profile = setProfile(
+      'Endurecimiento de superficie HTTP',
+      'T1562',
+      'degradar las defensas del canal web y habilitar ataques de intermediario'
+    );
+  } else if (/admin|backup|directory|listado|listing|expuesto/.test(baseText) || finding.tool === 'gobuster') {
+    profile = setProfile(
+      'Descubrimiento de recursos ocultos',
+      'T1083',
+      'acceder a paneles administrativos o archivos sensibles'
+    );
+  } else if (/csrf/.test(baseText)) {
+    profile = setProfile(
+      'Cross-Site Request Forgery',
+      'T1190',
+      'forzar acciones no autorizadas sobre cuentas válidas'
+    );
+  } else if (/default|config|exposici[óo]n|misconfig/.test(baseText)) {
+    profile = setProfile(
+      'Explotación de mala configuración',
+      'T1046',
+      `pivotar contra ${resource} debido a controles débiles`
+    );
+  }
+
+  if (/credencial|password|contrase[ñn]a|login/.test(baseText)) {
+    profile = setProfile(
+      'Abuso de credenciales débiles',
+      'T1110',
+      'obtener acceso inicial a cuentas privilegiadas'
+    );
+  }
+
+  if (/exposed|exposici[óo]n|surface|enum/.test(baseText) && finding.tool === 'wapiti') {
+    profile = setProfile(
+      'Enumeración avanzada de superficie',
+      'T1595',
+      `mapear rutas vulnerables dentro de ${resource}`
+    );
+  }
+
+  const indicator =
+    cleanIndicator(finding.evidence?.['indicator']) ??
+    cleanIndicator(finding.evidence?.['parameter']) ??
+    cleanIndicator(finding.evidence?.['path']) ??
+    cleanIndicator(finding.evidence?.['url']) ??
+    cleanIndicator(finding.evidence?.['message']) ??
+    cleanIndicator(finding.evidence?.['references']) ??
+    (finding.cve ?? undefined);
+
+  const normalizedWeakness = (finding.title ?? 'Vulnerabilidad detectada').trim();
+  const weakness = normalizedWeakness.replace(/\.+$/, '') || 'Vulnerabilidad detectada';
+
+  return {
+    technique: profile.technique,
+    impact: profile.impact,
+    vector,
+    resource,
+    indicator,
+    weakness
+  };
+};
 
 const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
   const scenarios = useMemo(() => {
@@ -40,16 +156,19 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
 
         const topFindings = ordered.slice(0, 3);
         const attackNarrative: AttackStep[] = topFindings.map((finding, index) => {
-          const vector = (finding.metadata?.['attack_vector'] as string) ?? 'remoto';
           const resource = (finding.metadata?.['technology'] as string) ?? 'activo desconocido';
           const phase = attackPhases[index] ?? attackPhases[attackPhases.length - 1];
-          const cve = finding.cve ? ` (CVE: ${finding.cve})` : '';
+          const profile = buildTechniqueProfile(finding, resource);
           return {
             phase,
-            summary: `${finding.tool} detectó ${finding.title}${cve}.`,
-            vector,
-            resource,
-            severity: finding.severity ?? 'informational'
+            summary: `La técnica ${profile.technique} permite aprovechar ${profile.weakness} y derivar en ${profile.impact}.`,
+            vector: profile.vector,
+            resource: profile.resource,
+            severity: finding.severity ?? 'informational',
+            technique: profile.technique,
+            weakness: profile.weakness,
+            impact: profile.impact,
+            indicator: profile.indicator
           };
         });
 
@@ -108,6 +227,15 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
           <p className="attack-card-subtitle">
             Secuencia priorizada de hallazgos con mayor probabilidad de explotación encadenada.
           </p>
+          <div className="attack-origin">
+            <span className="attack-origin-icon" aria-hidden="true">
+              🕵️
+            </span>
+            <div>
+              <h4>Actor de amenaza</h4>
+              <p>Encadena técnicas ofensivas para avanzar contra {scenario.target}.</p>
+            </div>
+          </div>
           <ol className="attack-path" role="list">
             {scenario.narrative.map((step, index) => (
               <li
@@ -119,10 +247,20 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
                   <span className="attack-step-phase">{step.phase}</span>
                 </div>
                 <div className="attack-step-body">
+                  <div className="attack-step-technique">
+                    <span className="technique-chip">{step.technique}</span>
+                    <span className="weakness-label">{step.weakness}</span>
+                  </div>
                   <p>{step.summary}</p>
                   <div className="attack-step-meta">
                     <span>Vector: <strong>{step.vector}</strong></span>
                     <span>Activo: <strong>{step.resource}</strong></span>
+                    <span>Impacto: <strong>{step.impact}</strong></span>
+                    {step.indicator ? (
+                      <span>
+                        Indicador: <strong>{step.indicator}</strong>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </li>
