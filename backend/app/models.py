@@ -63,10 +63,11 @@ class Finding(Base):
 
     scan = relationship("Scan", back_populates="findings")
 
-    @property
-    def metadata(self):
+    def _get_metadata(self):
         return self._metadata
 
-    @metadata.setter
-    def metadata(self, value):
+    def _set_metadata(self, value):
         self._metadata = value
+
+
+Finding.metadata = property(Finding._get_metadata, Finding._set_metadata)
