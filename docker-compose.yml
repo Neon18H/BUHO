@@ -39,7 +39,7 @@ services:
     image: buh/frontend
     container_name: buh-frontend
     ports:
-      - "3000:3000"
+      - "3000:80"
     depends_on:
       - backend
 
