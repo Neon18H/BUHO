@@ -140,20 +140,30 @@ class ScannerOrchestrator:
             logger.exception("Error inesperado ejecutando %s", tool)
             return runner.synthetic_findings(target, reason=str(exc))
 
-        if result.success and (result.stdout or result.stderr):
-            description = result.stdout or result.stderr
+        findings = runner.produce_findings(result, target)
+        if findings:
+            for item in findings:
+                metadata = item.setdefault("metadata", {})
+                metadata.setdefault("exit_code", result.exit_code)
+            return findings
+
+        if result.exit_code == 127:
+            logger.error("Herramienta %s no disponible en el entorno actual", tool)
             return [
                 {
                     "tool": tool,
-                    "title": f"Resultado de {tool}",
-                    "description": description,
-                    "severity": "medium",
-                    "evidence": {"stdout": result.stdout, "stderr": result.stderr},
+                    "title": f"{tool} no está instalado",
+                    "description": (
+                        "El ejecutable no se encontró en el contenedor de trabajo. "
+                        "Instala la herramienta o habilita el uso de contenedores de escaneo."
+                    ),
+                    "severity": "informational",
                     "metadata": {
-                        "exit_code": result.exit_code,
-                        "cvss": 5.0,
                         "simulated": False,
+                        "reason": "tool_missing",
+                        "exit_code": result.exit_code,
                     },
+                    "evidence": {"stderr": result.stderr},
                 }
             ]
 

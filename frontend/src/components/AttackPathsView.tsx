@@ -1,9 +1,17 @@
-import React, { useMemo } from 'react';
+import React, { Fragment, useMemo } from 'react';
 import { Scan } from '../services/api';
 import RiskBadge from './RiskBadge';
 
 interface AttackPathsViewProps {
   scans: Scan[];
+}
+
+interface AttackStep {
+  phase: string;
+  summary: string;
+  vector: string;
+  resource: string;
+  severity: string;
 }
 
 const severityWeight: Record<string, number> = {
@@ -13,6 +21,8 @@ const severityWeight: Record<string, number> = {
   low: 2,
   informational: 1
 };
+
+const attackPhases = ['Acceso inicial', 'Movimiento lateral', 'Impacto'];
 
 const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
   const scenarios = useMemo(() => {
@@ -29,18 +39,25 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
         }
 
         const topFindings = ordered.slice(0, 3);
-        const attackNarrative = topFindings.map((finding, index) => {
+        const attackNarrative: AttackStep[] = topFindings.map((finding, index) => {
           const vector = (finding.metadata?.['attack_vector'] as string) ?? 'remoto';
-          const phase = ['Acceso inicial', 'Movimiento lateral', 'Impacto'][index] ?? 'Impacto';
+          const resource = (finding.metadata?.['technology'] as string) ?? 'activo desconocido';
+          const phase = attackPhases[index] ?? attackPhases[attackPhases.length - 1];
           const cve = finding.cve ? ` (CVE: ${finding.cve})` : '';
-          return `${phase}: ${finding.tool} detectó ${finding.title}${cve}. Vector ${vector}.`;
+          return {
+            phase,
+            summary: `${finding.tool} detectó ${finding.title}${cve}.`,
+            vector,
+            resource,
+            severity: finding.severity ?? 'informational'
+          };
         });
 
         return {
           id: scan.id,
           target: scan.target,
           severity: ordered[0].severity ?? 'informational',
-          narrative: attackNarrative,
+          narrative: attackNarrative
         };
       })
       .filter((value): value is NonNullable<typeof value> => Boolean(value));
@@ -69,11 +86,30 @@ const AttackPathsView: React.FC<AttackPathsViewProps> = ({ scans }) => {
             </div>
             <RiskBadge level={scenario.severity ?? 'informational'} />
           </header>
-          <ol className="attack-steps">
+          <div className="attack-path-diagram" role="list">
             {scenario.narrative.map((step, index) => (
-              <li key={index}>{step}</li>
+              <Fragment key={`${scenario.id}-${index}`}>
+                <div
+                  role="listitem"
+                  className={`attack-node severity-${step.severity ?? 'informational'}`}
+                >
+                  <div className="attack-node-badge">{index + 1}</div>
+                  <div className="attack-node-body">
+                    <h4>{step.phase}</h4>
+                    <p>{step.summary}</p>
+                    <span className="attack-node-meta">
+                      Vector: <strong>{step.vector}</strong> · Recurso: <strong>{step.resource}</strong>
+                    </span>
+                  </div>
+                </div>
+                {index < scenario.narrative.length - 1 && (
+                  <div className="attack-node-connector" aria-hidden="true">
+                    <span />
+                  </div>
+                )}
+              </Fragment>
             ))}
-          </ol>
+          </div>
         </article>
       ))}
     </div>
