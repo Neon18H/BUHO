@@ -113,7 +113,27 @@ class ScannerOrchestrator:
         self.db.commit()
 
     async def execute_tool(self, tool: str, target: str) -> List[dict]:
-        runner = get_tool_runner(tool)
+        try:
+            runner = get_tool_runner(tool)
+        except ValueError as exc:
+            logger.error("Herramienta no registrada solicitada: %s", tool)
+            return [
+                {
+                    "tool": tool,
+                    "title": f"Herramienta '{tool}' no está configurada",
+                    "description": (
+                        "La herramienta solicitada no forma parte del registro actual. "
+                        "Revise la configuración del backend o actualice la lista de "
+                        "herramientas permitidas."
+                    ),
+                    "severity": "informational",
+                    "evidence": {"error": str(exc)},
+                    "metadata": {
+                        "simulated": True,
+                        "reason": "tool_not_registered",
+                    },
+                }
+            ]
         try:
             result = await runner.run(target)
         except Exception as exc:  # pragma: no cover - defensive guard
