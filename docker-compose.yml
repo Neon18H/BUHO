@@ -1,0 +1,83 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    image: buh/backend
+    container_name: buh-backend
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://buh:buh@db:5432/buh
+      - REDIS_URL=redis://redis:6379/0
+      - AI_MODEL=distilbert-base-uncased
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  worker:
+    build: ./backend
+    image: buh/worker
+    container_name: buh-worker
+    command: celery -A app.celery_app.celery_app worker --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://buh:buh@db:5432/buh
+      - REDIS_URL=redis://redis:6379/0
+      - AI_MODEL=distilbert-base-uncased
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    image: buh/frontend
+    container_name: buh-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  db:
+    image: postgres:15-alpine
+    container_name: buh-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: buh
+      POSTGRES_PASSWORD: buh
+      POSTGRES_DB: buh
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: buh-redis
+    restart: unless-stopped
+
+  wapiti:
+    build: ./scanners/wapiti
+    image: buh/wapiti
+    profiles: [scanners]
+
+  nikto:
+    build: ./scanners/nikto
+    image: buh/nikto
+    profiles: [scanners]
+
+  sqlmap:
+    build: ./scanners/sqlmap
+    image: buh/sqlmap
+    profiles: [scanners]
+
+  gobuster:
+    build: ./scanners/gobuster
+    image: buh/gobuster
+    profiles: [scanners]
+
+volumes:
+  db_data:
