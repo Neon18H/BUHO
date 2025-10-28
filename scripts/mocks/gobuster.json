@@ -1,0 +1,23 @@
+{
+  "entries": [
+    {
+      "id_local": "gobuster-1",
+      "scan_id": "demo-scan",
+      "tool": "gobuster",
+      "target": "https://demo.buho.local",
+      "path": "/admin",
+      "parameter": null,
+      "title": "Exposed admin directory",
+      "description": "Hidden admin directory discovered.",
+      "severity": "medium",
+      "cvss_v3": 5.5,
+      "cve": [],
+      "confidence": "medium",
+      "evidence": {"status": 200},
+      "references": ["https://example.com/hardening"],
+      "timestamp": "2024-03-01T03:00:00Z",
+      "priority_score": null,
+      "exploitability_notes": "Accessible admin panel"
+    }
+  ]
+}

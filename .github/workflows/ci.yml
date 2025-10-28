@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: buho
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/buho
+      SYNC_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/buho
+      REDIS_URL: redis://localhost:6379/0
+      POETRY_VIRTUALENVS_CREATE: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        working-directory: backend
+        run: poetry install
+      - name: Lint
+        working-directory: backend
+        run: |
+          poetry run flake8
+          poetry run black --check app
+          poetry run isort --check-only app
+      - name: Tests
+        working-directory: backend
+        run: poetry run pytest --maxfail=1 --disable-warnings -q
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report
+          path: backend/.pytest_cache
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint -- --max-warnings=0
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist

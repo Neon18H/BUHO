@@ -1,0 +1,23 @@
+{
+  "vulnerabilities": [
+    {
+      "id_local": "wapiti-1",
+      "scan_id": "demo-scan",
+      "tool": "wapiti",
+      "target": "https://demo.buho.local",
+      "path": "/login",
+      "parameter": "username",
+      "title": "SQL Injection",
+      "description": "Potential SQL injection in login endpoint.",
+      "severity": "high",
+      "cvss_v3": 8.1,
+      "cve": ["CVE-2024-0001"],
+      "confidence": "high",
+      "evidence": {"request": "GET /login?user='"},
+      "references": ["https://owasp.org/www-community/attacks/SQL_Injection"],
+      "timestamp": "2024-03-01T00:00:00Z",
+      "priority_score": null,
+      "exploitability_notes": "Injection possible via parameter"
+    }
+  ]
+}

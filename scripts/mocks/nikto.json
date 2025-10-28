@@ -1,0 +1,23 @@
+{
+  "findings": [
+    {
+      "id_local": "nikto-1",
+      "scan_id": "demo-scan",
+      "tool": "nikto",
+      "target": "https://demo.buho.local",
+      "path": "/server-status",
+      "parameter": null,
+      "title": "Server status exposed",
+      "description": "Apache server-status exposed to the internet.",
+      "severity": "medium",
+      "cvss_v3": 6.4,
+      "cve": ["CVE-2023-0002"],
+      "confidence": "medium",
+      "evidence": {"response": "200 OK"},
+      "references": ["https://httpd.apache.org/docs/2.4/mod/mod_status.html"],
+      "timestamp": "2024-03-01T01:00:00Z",
+      "priority_score": null,
+      "exploitability_notes": "Information disclosure"
+    }
+  ]
+}
