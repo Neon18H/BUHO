@@ -1,0 +1,8 @@
+admin
+login
+backup
+config
+test
+robots.txt
+.git
+.env
