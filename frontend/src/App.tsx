@@ -1,37 +1,71 @@
-import React from 'react';
+import React, { useState } from 'react';
 import DashboardCards from './components/DashboardCards';
 import FindingsTable from './components/FindingsTable';
 import ScanLauncher from './components/ScanLauncher';
 import ScanMap from './components/ScanMap';
+import Sidebar, { ViewKey } from './components/Sidebar';
+import AttackPathsView from './components/AttackPathsView';
+import AssetsOverview from './components/AssetsOverview';
 import { useScans } from './hooks/useScans';
 
 const App: React.FC = () => {
   const { scans, isLoading, severityTally, createScan, isCreating, error } = useScans();
+  const [activeView, setActiveView] = useState<ViewKey>('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+
+  const renderDashboard = () => (
+    <>
+      <ScanLauncher onCreate={createScan} isCreating={isCreating} error={error} />
+      <DashboardCards
+        totalScans={scans.length}
+        activeScans={scans.filter((scan) => scan.status === 'running').length}
+        severityTally={severityTally}
+      />
+      <div className="grid" style={{ margin: '2rem 0' }}>
+        <ScanMap scans={scans} />
+      </div>
+      <FindingsTable scans={scans} />
+    </>
+  );
+
+  const renderView = () => {
+    switch (activeView) {
+      case 'attack-paths':
+        return <AttackPathsView scans={scans} />;
+      case 'targets':
+        return <AssetsOverview scans={scans} />;
+      case 'dashboard':
+      default:
+        return renderDashboard();
+    }
+  };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '2rem' }}>
-        <h1 style={{ margin: 0 }}>Buh - Plataforma de Escaneo</h1>
-        <p style={{ opacity: 0.8 }}>
-          Orquestación inteligente de Wapiti, Nikto, SQLmap y GoBuster con priorización y asistencia IA.
-        </p>
-      </header>
-      <ScanLauncher onCreate={createScan} isCreating={isCreating} error={error} />
-      {isLoading ? (
-        <p>Cargando escaneos...</p>
-      ) : (
-        <>
-          <DashboardCards
-            totalScans={scans.length}
-            activeScans={scans.filter((scan) => scan.status === 'running').length}
-            severityTally={severityTally}
-          />
-          <div className="grid" style={{ margin: '2rem 0' }}>
-            <ScanMap scans={scans} />
+    <div className={`app-shell ${sidebarCollapsed ? 'sidebar-is-collapsed' : ''}`}>
+      <Sidebar
+        activeView={activeView}
+        collapsed={sidebarCollapsed}
+        onSelect={setActiveView}
+        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+      />
+      <main className="app-main">
+        <header className="app-header">
+          <div>
+            <h1>Buh - Plataforma de Escaneo</h1>
+            <p>
+              Orquesta Wapiti, Nikto, SQLmap y GoBuster con enriquecimiento automático, rutas de ataque
+              y priorización accionable.
+            </p>
           </div>
-          <FindingsTable scans={scans} />
-        </>
-      )}
+          <div className="header-meta">
+            <span className="meta-label">Escaneos totales</span>
+            <strong>{scans.length}</strong>
+          </div>
+        </header>
+        <section className="app-content">
+          {isLoading ? <div className="card">Cargando escaneos...</div> : renderView()}
+        </section>
+      </main>
     </div>
   );
 };
