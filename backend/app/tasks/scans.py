@@ -6,17 +6,11 @@ from sqlalchemy.orm import Session
 
 from ..db import SessionLocal
 from ..models import Scan
-from ..services.scanner import ScannerOrchestrator
-from ..services.tooling import TOOL_REGISTRY, ToolRunner
-
-
-def get_tool_runner(name: str) -> ToolRunner:
-    if name not in TOOL_REGISTRY:
-        raise ValueError(f"Tool '{name}' is not registered")
-    return TOOL_REGISTRY[name]
 
 
 async def run_scan_async(scan: Scan, db: Session) -> None:
+    from ..services.scanner import ScannerOrchestrator
+
     orchestrator = ScannerOrchestrator(db)
     await orchestrator.run_scan(scan)
 

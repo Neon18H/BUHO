@@ -117,3 +117,9 @@ TOOL_REGISTRY: Dict[str, ToolRunner] = {
     "sqlmap": SQLMapRunner(),
     "gobuster": GoBusterRunner(),
 }
+
+
+def get_tool_runner(name: str) -> ToolRunner:
+    if name not in TOOL_REGISTRY:
+        raise ValueError(f"Tool '{name}' is not registered")
+    return TOOL_REGISTRY[name]

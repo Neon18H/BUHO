@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..services import ai, cve, prioritization
-from ..tasks import scans as scan_tasks
+from ..services.tooling import get_tool_runner
 
 
 class ScannerOrchestrator:
@@ -19,6 +19,8 @@ class ScannerOrchestrator:
         scan.status = models.ScanStatus.running
         self.db.add(scan)
         self.db.commit()
+        from ..tasks import scans as scan_tasks
+
         scan_tasks.execute_scan.delay(str(scan.id))
 
     def process_tool_results(
@@ -62,7 +64,7 @@ class ScannerOrchestrator:
         self.db.commit()
 
     async def execute_tool(self, tool: str, target: str) -> dict:
-        runner = scan_tasks.get_tool_runner(tool)
+        runner = get_tool_runner(tool)
         result = await runner.run(target)
         description = result.stdout or result.stderr or "Sin salida de la herramienta"
         return {
