@@ -147,9 +147,22 @@ class ScannerOrchestrator:
                 metadata.setdefault("exit_code", result.exit_code)
             return findings
 
+        def _augment_synthetic(findings: List[dict], reason: str | None) -> List[dict]:
+            for entry in findings:
+                metadata = entry.setdefault("metadata", {})
+                metadata.setdefault("exit_code", result.exit_code)
+                if reason and "reason" not in metadata:
+                    metadata.setdefault("reason", reason)
+                evidence = entry.setdefault("evidence", {})
+                if result.stdout and "stdout" not in evidence:
+                    evidence["stdout"] = result.stdout
+                if result.stderr and "stderr" not in evidence:
+                    evidence["stderr"] = result.stderr
+            return findings
+
         if result.exit_code == 127:
             logger.error("Herramienta %s no disponible en el entorno actual", tool)
-            return [
+            findings = [
                 {
                     "tool": tool,
                     "title": f"{tool} no está instalado",
@@ -163,9 +176,12 @@ class ScannerOrchestrator:
                         "reason": "tool_missing",
                         "exit_code": result.exit_code,
                     },
-                    "evidence": {"stderr": result.stderr},
+                    "evidence": {"stderr": result.stderr} if result.stderr else {},
                 }
             ]
+            synthetic = runner.synthetic_findings(target, reason="tool_missing")
+            findings.extend(_augment_synthetic(synthetic, reason="tool_missing"))
+            return findings
 
         logger.warning(
             "La herramienta %s no produjo salida útil (exit code %s). Se generará resultado simulado.",
@@ -178,15 +194,7 @@ class ScannerOrchestrator:
             else "sin_salida"
         )
         findings = runner.synthetic_findings(target, reason=reason)
-        for item in findings:
-            evidence = item.setdefault("evidence", {})
-            if result.stdout:
-                evidence.setdefault("stdout", result.stdout)
-            if result.stderr:
-                evidence.setdefault("stderr", result.stderr)
-            metadata = item.setdefault("metadata", {})
-            metadata.setdefault("exit_code", result.exit_code)
-        return findings
+        return _augment_synthetic(findings, reason)
 
     async def run_scan(self, scan: models.Scan) -> None:
         tasks = [self.execute_tool(tool, scan.target.url) for tool in scan.requested_tools]
