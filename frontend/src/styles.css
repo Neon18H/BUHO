@@ -11,6 +11,161 @@ body {
   min-height: 100vh;
 }
 
+.app-shell {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 100vh;
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%);
+  color: #f3f4f6;
+}
+
+.app-shell.sidebar-is-collapsed {
+  grid-template-columns: 96px 1fr;
+}
+
+.app-main {
+  padding: 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.app-header p {
+  margin: 0.75rem 0 0;
+  max-width: 620px;
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+.header-meta {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.header-meta strong {
+  font-size: 2rem;
+}
+
+.meta-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.app-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.sidebar {
+  background: rgba(15, 23, 42, 0.92);
+  border-right: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-logo {
+  font-weight: 800;
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar-toggle {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: rgba(30, 41, 59, 0.5);
+  color: inherit;
+  cursor: pointer;
+  transition: border 0.2s ease, transform 0.2s ease;
+  text-align: left;
+}
+
+.menu-item:hover {
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  transform: translateX(4px);
+}
+
+.menu-item-active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(99, 102, 241, 0.25));
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.menu-icon {
+  font-size: 1.35rem;
+}
+
+.menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.menu-text small {
+  opacity: 0.7;
+}
+
+.sidebar.sidebar-collapsed {
+  padding: 1.5rem 0.75rem;
+  align-items: center;
+}
+
+.sidebar.sidebar-collapsed .menu-item {
+  justify-content: center;
+  width: 100%;
+}
+
+.sidebar.sidebar-collapsed .menu-item:hover {
+  transform: none;
+}
+
 a {
   font-weight: 500;
   color: #38bdf8;
@@ -32,6 +187,32 @@ a:hover {
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.3);
+}
+
+.attack-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.attack-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.attack-steps {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: rgba(226, 232, 240, 0.88);
+}
+
+.attack-steps li {
+  line-height: 1.6;
 }
 
 .grid {
@@ -173,4 +354,67 @@ a:hover {
 .scan-button:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+}
+
+.asset-table-wrapper {
+  overflow-x: auto;
+}
+
+.asset-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+}
+
+.asset-table th,
+.asset-table td {
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.asset-table ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+@media (max-width: 1080px) {
+  .app-shell {
+    grid-template-columns: 240px 1fr;
+  }
+
+  .app-shell.sidebar-is-collapsed {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .app-main {
+    padding: 1.5rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell,
+  .app-shell.sidebar-is-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .sidebar-toggle {
+    display: none;
+  }
+
+  .app-main {
+    padding: 1.25rem;
+  }
 }

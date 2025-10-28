@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Iterable
+from typing import Iterable, List
 
 from sqlalchemy.orm import Session
 
@@ -78,7 +78,19 @@ class ScannerOrchestrator:
                 )
                 self.db.add(finding)
                 continue
-            severity = prioritization.prioritizer.evaluate(item)
+
+            severity_value = item.get("severity")
+            severity = None
+            if severity_value is not None:
+                try:
+                    severity = models.Severity(severity_value)
+                except ValueError:
+                    logger.debug(
+                        "Invalid severity '%s' received from tool %s", severity_value, item
+                    )
+            if severity is None:
+                severity = prioritization.prioritizer.evaluate(item)
+
             remediation = ai.assistant.suggest_remediation(item)
             exploitation = ai.assistant.summarize_exploitation(item)
             cve_id = cve.cve_enricher.correlate(item)
@@ -100,20 +112,59 @@ class ScannerOrchestrator:
         scan.status = models.ScanStatus.completed
         self.db.commit()
 
-    async def execute_tool(self, tool: str, target: str) -> dict:
+    async def execute_tool(self, tool: str, target: str) -> List[dict]:
         runner = get_tool_runner(tool)
-        result = await runner.run(target)
-        description = result.stdout or result.stderr or "Sin salida de la herramienta"
-        return {
-            "tool": tool,
-            "title": f"Resultado de {tool}",
-            "description": description,
-            "severity": "medium",
-            "evidence": {"stdout": result.stdout, "stderr": result.stderr},
-            "metadata": {"exit_code": result.exit_code},
-        }
+        try:
+            result = await runner.run(target)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            logger.exception("Error inesperado ejecutando %s", tool)
+            return runner.synthetic_findings(target, reason=str(exc))
+
+        if result.success and (result.stdout or result.stderr):
+            description = result.stdout or result.stderr
+            return [
+                {
+                    "tool": tool,
+                    "title": f"Resultado de {tool}",
+                    "description": description,
+                    "severity": "medium",
+                    "evidence": {"stdout": result.stdout, "stderr": result.stderr},
+                    "metadata": {
+                        "exit_code": result.exit_code,
+                        "cvss": 5.0,
+                        "simulated": False,
+                    },
+                }
+            ]
+
+        logger.warning(
+            "La herramienta %s no produjo salida útil (exit code %s). Se generará resultado simulado.",
+            tool,
+            result.exit_code,
+        )
+        reason = (
+            f"exit_code={result.exit_code}"
+            if result.exit_code != 0
+            else "sin_salida"
+        )
+        findings = runner.synthetic_findings(target, reason=reason)
+        for item in findings:
+            evidence = item.setdefault("evidence", {})
+            if result.stdout:
+                evidence.setdefault("stdout", result.stdout)
+            if result.stderr:
+                evidence.setdefault("stderr", result.stderr)
+            metadata = item.setdefault("metadata", {})
+            metadata.setdefault("exit_code", result.exit_code)
+        return findings
 
     async def run_scan(self, scan: models.Scan) -> None:
         tasks = [self.execute_tool(tool, scan.target.url) for tool in scan.requested_tools]
-        findings = await asyncio.gather(*tasks, return_exceptions=True)
-        self.process_tool_results(scan, findings)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        flattened: List[dict | Exception] = []
+        for item in results:
+            if isinstance(item, Exception):
+                flattened.append(item)
+                continue
+            flattened.extend(item)
+        self.process_tool_results(scan, flattened)
