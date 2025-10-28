@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 from .models import ScanStatus, Severity
+from .services.tooling import TOOL_REGISTRY
 
 
 class FindingBase(BaseModel):
@@ -35,6 +36,28 @@ class ScanBase(BaseModel):
     tools: List[str] = Field(
         default_factory=lambda: ["wapiti", "nikto", "sqlmap", "gobuster"]
     )
+
+    @field_validator("tools")
+    @classmethod
+    def validate_tools(cls, value: List[str]) -> List[str]:
+        normalized = [tool.lower() for tool in value]
+        unknown = sorted({tool for tool in normalized if tool not in TOOL_REGISTRY})
+        if unknown:
+            available = ", ".join(sorted(TOOL_REGISTRY.keys()))
+            raise ValueError(
+                "Herramientas no soportadas: "
+                + ", ".join(unknown)
+                + f". Opciones válidas: {available}."
+            )
+
+        deduped: List[str] = []
+        seen: set[str] = set()
+        for tool in normalized:
+            if tool in seen:
+                continue
+            seen.add(tool)
+            deduped.append(tool)
+        return deduped
 
 
 class ScanCreate(ScanBase):
